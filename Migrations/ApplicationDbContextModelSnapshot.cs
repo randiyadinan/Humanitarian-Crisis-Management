@@ -112,6 +112,9 @@ namespace HumanitarianAPI.Migrations
                     b.Property<decimal>("Amount")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("CrisisEventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Date")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -192,6 +195,9 @@ namespace HumanitarianAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("CrisisEventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Location")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -201,6 +207,9 @@ namespace HumanitarianAPI.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ShelterId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Status")
@@ -219,6 +228,9 @@ namespace HumanitarianAPI.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Capacity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CrisisEventId")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("CurrentOccupancy")
@@ -274,9 +286,15 @@ namespace HumanitarianAPI.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("CrisisEventId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("ShelterId")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Skills")
                         .IsRequired()

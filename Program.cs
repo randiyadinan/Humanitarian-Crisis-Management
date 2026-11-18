@@ -3,16 +3,18 @@ using HumanitarianAPI.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CORS Policy එකතු කිරීම (Frontend එකෙන් API එකට සම්බන්ධ වීමට)
+// CORS Policy එකතු කිරීම
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        policy => policy.AllowAnyOrigin()
-                        .AllowAnyMethod()
-                        .AllowAnyHeader());
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
 });
 
-// Database connection (SQLite)
+// Database connection (SQLite) - මෙතන ලයින් එක කඩන්නේ නැතුව එක දිගට ලියන්න
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -28,7 +30,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// CORS Middleware එක ක්‍රියාත්මක කිරීම (Authorization වලට උඩින් දිය යුතුය)
+// CORS Middleware එක (අනිවාර්යයෙන්ම app.UseAuthorization වලට උඩින් තිබිය යුතුය)
 app.UseCors("AllowAll");
 
 app.UseHttpsRedirection();

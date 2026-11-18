@@ -1,0 +1,19 @@
+# .NET
+bin/
+obj/
+.vs/
+
+# macOS
+.DS_Store
+
+# Local files
+.local/
+Library/
+
+# Logs
+*.log
+
+# User settings
+*.user
+*.suo
+humanitarian.db
