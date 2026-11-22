@@ -644,6 +644,14 @@
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
             .sidebar { width: 230px; }
         }
+
+        .auth-error { color: var(--danger); background: rgba(225,29,72,.08); border: 1px solid rgba(225,29,72,.2); padding: 10px 12px; border-radius: 10px; font-size: 12.5px; margin: 12px 0; }
+        .auth-success { color: #047857; background: rgba(5,150,105,.08); border: 1px solid rgba(5,150,105,.2); padding: 10px 12px; border-radius: 10px; font-size: 12.5px; margin: 12px 0; }
+        .auth-switch { border: 0; background: transparent; color: var(--primary); font-weight: 800; cursor: pointer; padding: 8px; }
+        .profile-grid, .org-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: 16px; }
+        .profile-field { background: #fff; padding: 17px; border-radius: 13px; border: 1px solid rgba(0,0,0,.07); }
+        .profile-field small { display:block; color:var(--text-muted); font-weight:800; text-transform:uppercase; font-size:10px; letter-spacing:.7px; margin-bottom:6px; }
+        @media (max-width: 760px) { .auth-image-side { display:none; } .auth-form-side { padding:30px 24px; } .auth-wrapper { padding:12px; } .auth-glass-container { min-height:0; } .app-layout { padding:10px; gap:10px; } .sidebar { width:190px; padding:14px; } .main-area { padding:20px 16px 80px; } }
     </style>
 </head>
 <body>
@@ -652,6 +660,33 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
         const API_BASE = "http://localhost:5196/api";
+        const AUTH_TOKEN_KEY = "hcmp_auth_token";
+        const AUTH_USER_KEY = "hcmp_auth_user";
+        const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY);
+        const apiFetch = (url, options = {}) => {
+            const headers = Object.assign({}, options.headers || {});
+            const token = getAuthToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+            return fetch(url, Object.assign({}, options, { headers }));
+        };
+        const readApiError = async (response) => {
+            const raw = await response.text();
+            if (!raw) return `Request failed (${response.status}).`;
+            try {
+                const data = JSON.parse(raw);
+                return data.message || data.Message || data.title || data.Title || data.error || raw;
+            } catch (_) { return raw; }
+        };
+        const normalizeAuthUser = (data, emailFallback) => {
+            const source = data.user || data.User || data.profile || data.Profile || data;
+            const roleValue = source.role || source.Role || data.role || data.Role || 'Citizen';
+            return {
+                id: source.id ?? source.Id ?? source.userId ?? source.UserId ?? null,
+                username: source.username || source.Username || source.name || source.Name || emailFallback.split('@')[0],
+                email: source.email || source.Email || emailFallback,
+                role: String(roleValue).toLowerCase() === 'admin' ? 'Admin' : 'Citizen'
+            };
+        };
 
         const SRI_LANKA_DISTRICTS = [
             "Ampara", "Anuradhapura", "Badulla", "Batticaloa", "Colombo", 
@@ -684,7 +719,10 @@
         };
 
         function App() {
-            const [user, setUser] = useState(null);
+            const [user, setUser] = useState(() => {
+                try { return JSON.parse(localStorage.getItem(AUTH_USER_KEY) || 'null'); }
+                catch (_) { return null; }
+            });
             const [activeTab, setActiveTab] = useState('dashboard');
             const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
             const [selectedCrisisId, setSelectedCrisisId] = useState(null);
@@ -694,7 +732,20 @@
                 return () => clearInterval(timer);
             }, []);
 
-            if (!user) return <LoginScreen onLogin={setUser} />;
+            const handleLogin = (authResult) => {
+                localStorage.setItem(AUTH_TOKEN_KEY, authResult.token);
+                localStorage.setItem(AUTH_USER_KEY, JSON.stringify(authResult.user));
+                setUser(authResult.user);
+                setActiveTab('dashboard');
+            };
+            const handleLogout = () => {
+                localStorage.removeItem(AUTH_TOKEN_KEY);
+                localStorage.removeItem(AUTH_USER_KEY);
+                setUser(null);
+                setActiveTab('dashboard');
+            };
+
+            if (!user || !getAuthToken()) return <LoginScreen onLogin={handleLogin} />;
 
             const navigateToCoordinator = (crisisId) => {
                 if (crisisId) setSelectedCrisisId(crisisId);
@@ -714,6 +765,8 @@
                     case 'resources': return <DynamicDataTable title="Resources Inventory" endpoint="Resources" cols={["Id", "Name", "Quantity", "Location", "Status", "CrisisEventId", "ShelterId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
                     case 'volunteers': return <DynamicDataTable title="Volunteers Directory" endpoint="Volunteers" cols={["Id", "Name", "Skills", "ContactNumber", "Status", "CrisisEventId", "ShelterId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
                     case 'donations': return <DynamicDataTable title="Donations Record" endpoint="Donations" cols={["Id", "DonorName", "DonationType", "Amount", "Description", "Date", "CrisisEventId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
+                    case 'organisations': return <OrganisationManagement />;
+                    case 'profile': return <UserProfile user={user} />;
                     case 'notifications': return <NotificationsPanel />;
                     default: return <Dashboard user={user} onNavigate={setActiveTab} onCoordinateCrisis={navigateToCoordinator} />;
                 }
@@ -721,7 +774,7 @@
 
             return (
                 <div className="app-layout">
-                    <Sidebar user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={() => setUser(null)} />
+                    <Sidebar user={user} activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
                     <main className="main-area ultimate-glass">
                         <header className="header">
                             <div>
@@ -729,15 +782,9 @@
                                 <span style={{fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600}}>Humanitarian Crisis Management Portal &bull; Sri Lanka Sector</span>
                             </div>
                             <div className="header-meta">
-                                <div className="meta-pill" style={{color: 'var(--text-muted)'}}>
-                                    🕒 {currentTime}
-                                </div>
-                                <div className="meta-pill" style={{color: 'var(--success)'}}>
-                                    <span className="status-dot"></span> Grid Online
-                                </div>
-                                <div className="meta-pill" style={{color: 'var(--primary)', fontWeight: '900'}}>
-                                    ROLE: {user.role.toUpperCase()}
-                                </div>
+                                <div className="meta-pill" style={{color: 'var(--text-muted)'}}>🕒 {currentTime}</div>
+                                <div className="meta-pill" style={{color: 'var(--success)'}}><span className="status-dot"></span> Grid Online</div>
+                                <div className="meta-pill" style={{color: 'var(--primary)', fontWeight: '900'}}>ROLE: {user.role.toUpperCase()}</div>
                             </div>
                         </header>
                         {renderContent()}
@@ -747,92 +794,164 @@
         }
 
         function LoginScreen({ onLogin }) {
+            const [isRegister, setIsRegister] = useState(false);
+            const [username, setUsername] = useState('');
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
-            
-            const handleLogin = (e) => {
+            const [confirmPassword, setConfirmPassword] = useState('');
+            const [busy, setBusy] = useState(false);
+            const [message, setMessage] = useState('');
+            const [isError, setIsError] = useState(false);
+
+            const submit = async (e) => {
                 e.preventDefault();
-                const em = email.toLowerCase().trim();
-                if (em.includes('admin')) {
-                    onLogin({ email: em, role: 'Admin', username: 'System Admin' });
-                } else {
-                    onLogin({ email: em, role: 'Citizen', username: 'Citizen User' });
+                setMessage('');
+                const cleanEmail = email.trim().toLowerCase();
+                if (isRegister && password !== confirmPassword) {
+                    setIsError(true); setMessage('Passwords do not match.'); return;
                 }
+                setBusy(true);
+                try {
+                    const endpoint = isRegister ? 'register' : 'login';
+                    const payload = isRegister
+                        ? { username: username.trim(), email: cleanEmail, password }
+                        : { email: cleanEmail, password };
+                    const response = await fetch(`${API_BASE}/Auth/${endpoint}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(await readApiError(response));
+                    const data = await response.json();
+                    if (isRegister) {
+                        setIsRegister(false);
+                        setPassword(''); setConfirmPassword('');
+                        setIsError(false);
+                        setMessage('Registration successful. Please sign in with your new account.');
+                    } else {
+                        const token = data.token || data.Token || data.accessToken || data.AccessToken || data.jwt || data.Jwt;
+                        if (!token) throw new Error('Login response did not contain a JWT token. Check AuthController login response.');
+                        const loggedUser = normalizeAuthUser(data, cleanEmail);
+                        onLogin({ token, user: loggedUser });
+                    }
+                } catch (error) {
+                    setIsError(true);
+                    setMessage(error.message || 'Unable to connect to the authentication server.');
+                } finally { setBusy(false); }
             };
 
             return (
                 <div className="auth-wrapper">
                     <div className="auth-glass-container ultimate-glass">
-                        <div className="auth-image-side">
-                            <div className="auth-image-overlay">
-                                <h1>Empowering Humanity.</h1>
-                                <p>Centralized humanitarian crisis coordination node. Real-time disaster telemetry, citizen emergency aid requests, donations, and volunteer network.</p>
-                            </div>
-                        </div>
+                        <div className="auth-image-side"><div className="auth-image-overlay"><h1>Empowering Humanity.</h1><p>Centralized humanitarian crisis coordination node. Real-time disaster telemetry, citizen emergency aid requests, donations, and volunteer network.</p></div></div>
                         <div className="auth-form-side">
-                            <h2>Humanitarian Access</h2>
-                            <p>Sign in to access the emergency response portal.<br/><b>Demo Accounts:</b> <code>admin@crisis.lk</code> (Admin) | <code>citizen@crisis.lk</code> (Citizen)</p>
-                            <form onSubmit={handleLogin}>
-                                <div className="input-group">
-                                    <label>Authorized Email</label>
-                                    <input type="email" className="glass-input" value={email} onChange={e => setEmail(e.target.value)} required placeholder="user@crisis.lk" />
-                                </div>
-                                <div className="input-group">
-                                    <label>Security Passkey</label>
-                                    <input type="password" className="glass-input" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" />
-                                </div>
-                                <button type="submit" className="btn-glass" style={{marginTop: '10px'}}>Authenticate Session</button>
+                            <h2>{isRegister ? 'Create Citizen Account' : 'Humanitarian Access'}</h2>
+                            <p>{isRegister ? 'Register to access humanitarian services. New accounts receive the Citizen role.' : 'Sign in using your registered email and password.'}</p>
+                            <form onSubmit={submit}>
+                                {isRegister && <div className="input-group"><label>Full Name / Username</label><input className="glass-input" value={username} onChange={e => setUsername(e.target.value)} required minLength="2" placeholder="Your name" /></div>}
+                                <div className="input-group"><label>Email Address</label><input type="email" className="glass-input" value={email} onChange={e => setEmail(e.target.value)} required placeholder="user@example.com" /></div>
+                                <div className="input-group"><label>Password</label><input type="password" className="glass-input" value={password} onChange={e => setPassword(e.target.value)} required minLength="6" placeholder="Enter password" /></div>
+                                {isRegister && <div className="input-group"><label>Confirm Password</label><input type="password" className="glass-input" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required minLength="6" placeholder="Re-enter password" /></div>}
+                                {message && <div className={isError ? 'auth-error' : 'auth-success'}>{message}</div>}
+                                <button type="submit" className="btn-glass" disabled={busy} style={{marginTop:'8px'}}>{busy ? 'Please wait...' : (isRegister ? 'Create Account' : 'Sign In')}</button>
                             </form>
+                            <div style={{textAlign:'center', marginTop:18, fontSize:13, color:'var(--text-muted)'}}>
+                                {isRegister ? 'Already have an account?' : "Don't have an account?"}
+                                <button className="auth-switch" onClick={() => {setIsRegister(!isRegister);setMessage('');}}>{isRegister ? 'Sign in' : 'Register'}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             );
         }
 
+        function UserProfile({ user }) {
+            return <div className="content-card">
+                <h2 style={{marginTop:0}}>My User Profile</h2>
+                <p style={{color:'var(--text-muted)'}}>Account details returned by the authentication service.</p>
+                <div className="profile-grid">
+                    <div className="profile-field"><small>User ID</small><strong>{user.id ?? 'Not provided by API'}</strong></div>
+                    <div className="profile-field"><small>Username</small><strong>{user.username}</strong></div>
+                    <div className="profile-field"><small>Email</small><strong>{user.email}</strong></div>
+                    <div className="profile-field"><small>Assigned Role</small><span className="badge badge-blue">{user.role}</span></div>
+                </div>
+                <div className="auth-success" style={{marginTop:18}}>Your session is authenticated using a JWT token. Passwords are never displayed here.</div>
+            </div>;
+        }
+
+        function OrganisationManagement() {
+            const emptyForm = { name:'', sector:'', contactPerson:'', phone:'' };
+            const [items, setItems] = useState([]);
+            const [form, setForm] = useState(emptyForm);
+            const [editId, setEditId] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [busy, setBusy] = useState(false);
+            const [message, setMessage] = useState('');
+            const load = async () => {
+                setLoading(true);
+                try {
+                    const res = await apiFetch(`${API_BASE}/Organisation`);
+                    if (!res.ok) throw new Error(await readApiError(res));
+                    const data = await res.json(); setItems(Array.isArray(data) ? data : []);
+                } catch (e) { setMessage(e.message || 'Unable to load organisations.'); }
+                finally { setLoading(false); }
+            };
+            useEffect(() => { load(); }, []);
+            const save = async (e) => {
+                e.preventDefault(); setBusy(true); setMessage('');
+                try {
+                    const url = editId ? `${API_BASE}/Organisation/${editId}` : `${API_BASE}/Organisation`;
+                    const res = await apiFetch(url, { method: editId ? 'PUT' : 'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ Id:editId || 0, Name:form.name, Sector:form.sector, ContactPerson:form.contactPerson, Phone:form.phone }) });
+                    if (!res.ok) throw new Error(await readApiError(res));
+                    setForm(emptyForm); setEditId(null); setMessage('Organisation saved successfully.'); await load();
+                } catch (e) { setMessage(e.message || 'Save failed.'); }
+                finally { setBusy(false); }
+            };
+            const remove = async (id) => {
+                if (!confirm('Delete this organisation?')) return;
+                try { const res = await apiFetch(`${API_BASE}/Organisation/${id}`, {method:'DELETE'}); if (!res.ok) throw new Error(await readApiError(res)); await load(); setMessage('Organisation deleted.'); }
+                catch(e) { setMessage(e.message || 'Delete failed.'); }
+            };
+            const edit = (item) => { setEditId(getId(item)); setForm({ name:item.name || item.Name || '', sector:item.sector || item.Sector || '', contactPerson:item.contactPerson || item.ContactPerson || '', phone:item.phone || item.Phone || '' }); };
+            return <div className="content-card">
+                <h2 style={{marginTop:0}}>Organisation Management</h2>
+                <p style={{color:'var(--text-muted)'}}>Create, view, update and delete humanitarian organisations.</p>
+                <form onSubmit={save} className="org-grid" style={{alignItems:'end', marginBottom:22}}>
+                    <div className="input-group"><label>Organisation Name</label><input className="glass-input" required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></div>
+                    <div className="input-group"><label>Sector</label><input className="glass-input" required value={form.sector} onChange={e=>setForm({...form,sector:e.target.value})} placeholder="Medical / Relief / NGO" /></div>
+                    <div className="input-group"><label>Contact Person</label><input className="glass-input" required value={form.contactPerson} onChange={e=>setForm({...form,contactPerson:e.target.value})} /></div>
+                    <div className="input-group"><label>Phone</label><input className="glass-input" required value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} /></div>
+                    <div style={{display:'flex',gap:8,marginBottom:18}}><button className="btn-glass" type="submit" disabled={busy}>{busy ? 'Saving...' : (editId ? 'Update Organisation' : 'Add Organisation')}</button>{editId && <button className="btn-outline-glass" type="button" onClick={()=>{setEditId(null);setForm(emptyForm);}}>Cancel</button>}</div>
+                </form>
+                {message && <div className="auth-success">{message}</div>}
+                {loading ? <p>Loading organisations...</p> : <div className="table-container"><table><thead><tr><th>ID</th><th>Name</th><th>Sector</th><th>Contact Person</th><th>Phone</th><th>Actions</th></tr></thead><tbody>
+                    {items.length === 0 ? <tr><td colSpan="6" style={{textAlign:'center'}}>No organisations found.</td></tr> : items.map(item=><tr key={getId(item)}><td>{getId(item)}</td><td>{item.name || item.Name}</td><td>{item.sector || item.Sector}</td><td>{item.contactPerson || item.ContactPerson}</td><td>{item.phone || item.Phone}</td><td><div className="actions-cell"><button className="btn-outline-glass" onClick={()=>edit(item)}>Edit</button><button className="btn-outline-glass" style={{color:'var(--danger)'}} onClick={()=>remove(getId(item))}>Delete</button></div></td></tr>)}
+                </tbody></table></div>}
+            </div>;
+        }
+
         function Sidebar({ user, activeTab, setActiveTab, onLogout }) {
             const tabs = [
-                // ADMIN TABS
-                { id: 'dashboard', label: 'Dashboard', icon: '📊', roles: ['Admin', 'Citizen'] },
-                { id: 'coordinator', label: 'Crisis Coordinator', icon: '🔗', roles: ['Admin'] },
-                { id: 'crisis-events', label: 'Crisis Events', icon: '⚡', roles: ['Admin'] },
-                { id: 'shelters', label: 'Shelters', icon: '🏕️', roles: ['Admin'] },
-                { id: 'resources', label: 'Resources', icon: '📦', roles: ['Admin'] },
-                { id: 'volunteers', label: 'Volunteers Directory', icon: '🤝', roles: ['Admin'] },
-                { id: 'donations', label: 'Donations Record', icon: '🎁', roles: ['Admin'] },
-                { id: 'manage-requests', label: 'All Requests', icon: '📑', roles: ['Admin'] },
-
-                // CITIZEN ACTION FORMS ONLY
-                { id: 'submit-request', label: 'Request Emergency Aid', icon: '🚨', roles: ['Citizen'] },
-                { id: 'donate-form', label: 'Make Donation', icon: '🎁', roles: ['Citizen'] },
-                { id: 'volunteer-form', label: 'Register as Volunteer', icon: '🤝', roles: ['Citizen'] },
-
-                // SHARED
-                { id: 'notifications', label: 'Broadcasts', icon: '📢', roles: ['Admin', 'Citizen'] }
+                { id:'dashboard', label:'Dashboard', icon:'📊', roles:['Admin','Citizen'] },
+                { id:'profile', label:'My Profile', icon:'👤', roles:['Admin','Citizen'] },
+                { id:'organisations', label:'Organisations', icon:'🏢', roles:['Admin'] },
+                { id:'coordinator', label:'Crisis Coordinator', icon:'🔗', roles:['Admin'] },
+                { id:'crisis-events', label:'Crisis Events', icon:'⚡', roles:['Admin'] },
+                { id:'shelters', label:'Shelters', icon:'🏕️', roles:['Admin'] },
+                { id:'resources', label:'Resources', icon:'📦', roles:['Admin'] },
+                { id:'volunteers', label:'Volunteers Directory', icon:'🤝', roles:['Admin'] },
+                { id:'donations', label:'Donations Record', icon:'🎁', roles:['Admin'] },
+                { id:'manage-requests', label:'All Requests', icon:'📑', roles:['Admin'] },
+                { id:'submit-request', label:'Request Emergency Aid', icon:'🚨', roles:['Citizen'] },
+                { id:'donate-form', label:'Make Donation', icon:'🎁', roles:['Citizen'] },
+                { id:'volunteer-form', label:'Register as Volunteer', icon:'🤝', roles:['Citizen'] },
+                { id:'notifications', label:'Broadcasts', icon:'📢', roles:['Admin','Citizen'] }
             ];
-
-            return (
-                <aside className="sidebar ultimate-glass">
-                    <div className="brand">
-                        <span>HCMP</span> CORE NET
-                    </div>
-                    <ul className="nav-menu">
-                        {tabs.filter(t => t.roles.includes(user.role)).map(tab => (
-                            <li key={tab.id} className={`nav-item ${activeTab === tab.id ? 'active' : ''}`} onClick={() => setActiveTab(tab.id)}>
-                                <span>{tab.icon}</span>
-                                <span>{tab.label}</span>
-                            </li>
-                        ))}
-                    </ul>
-                    <div className="user-profile">
-                        <div className="avatar">{user.username.charAt(0)}</div>
-                        <div style={{flex: 1, minWidth: 0}}>
-                            <div style={{fontWeight: 800, color: 'var(--text-main)', fontSize: '13.5px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap'}}>{user.username}</div>
-                            <div style={{fontSize: '11px', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase'}}>{user.role}</div>
-                        </div>
-                        <button onClick={onLogout} style={{background:'none', border:'none', cursor:'pointer', color:'var(--danger)', fontSize:'12px', fontWeight: '800'}} title="Logout">Exit</button>
-                    </div>
-                </aside>
-            );
+            return <aside className="sidebar ultimate-glass">
+                <div className="brand"><span>HCMP</span> CORE NET</div>
+                <ul className="nav-menu">{tabs.filter(t=>t.roles.includes(user.role)).map(tab=><li key={tab.id} className={`nav-item ${activeTab===tab.id?'active':''}`} onClick={()=>setActiveTab(tab.id)}><span>{tab.icon}</span><span>{tab.label}</span></li>)}</ul>
+                <div className="user-profile"><div className="avatar">{(user.username || 'U').charAt(0).toUpperCase()}</div><div style={{flex:1,minWidth:0}}><div style={{fontWeight:800,fontSize:'13.5px',overflow:'hidden',whiteSpace:'nowrap'}}>{user.username}</div><div style={{fontSize:'11px',color:'var(--primary)',fontWeight:800,textTransform:'uppercase'}}>{user.role}</div></div><button onClick={onLogout} style={{background:'none',border:'none',cursor:'pointer',color:'var(--danger)',fontSize:'12px',fontWeight:800}}>Exit</button></div>
+            </aside>;
         }
 
         function Dashboard({ user, onNavigate, onCoordinateCrisis }) {
@@ -1037,10 +1156,10 @@
                 const fetchData = async () => {
                     try {
                         const [reqRes, shelterRes, volRes, eventRes] = await Promise.all([
-                            fetch(`${API_BASE}/AssistanceRequest`),
-                            fetch(`${API_BASE}/Shelters`),
-                            fetch(`${API_BASE}/Volunteers`),
-                            fetch(`${API_BASE}/CrisisEvents`)
+                            apiFetch(`${API_BASE}/AssistanceRequest`),
+                            apiFetch(`${API_BASE}/Shelters`),
+                            apiFetch(`${API_BASE}/Volunteers`),
+                            apiFetch(`${API_BASE}/CrisisEvents`)
                         ]);
                         const reqs = reqRes.ok ? await reqRes.json() : [];
                         const shelters = shelterRes.ok ? await shelterRes.json() : [];
@@ -1182,11 +1301,11 @@
                 setLoading(true);
                 try {
                     const [cRes, sRes, rRes, vRes, dRes] = await Promise.all([
-                        fetch(`${API_BASE}/CrisisEvents`),
-                        fetch(`${API_BASE}/Shelters`),
-                        fetch(`${API_BASE}/Resources`),
-                        fetch(`${API_BASE}/Volunteers`),
-                        fetch(`${API_BASE}/Donations`)
+                        apiFetch(`${API_BASE}/CrisisEvents`),
+                        apiFetch(`${API_BASE}/Shelters`),
+                        apiFetch(`${API_BASE}/Resources`),
+                        apiFetch(`${API_BASE}/Volunteers`),
+                        apiFetch(`${API_BASE}/Donations`)
                     ]);
 
                     const cList = cRes.ok ? await cRes.json() : [];
@@ -1267,7 +1386,7 @@
                 let count = 0;
                 for (const s of availableShelters) {
                     try {
-                        await fetch(`${API_BASE}/Shelters/${getId(s)}`, {
+                        await apiFetch(`${API_BASE}/Shelters/${getId(s)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1284,7 +1403,7 @@
                 }
                 for (const r of availableResources) {
                     try {
-                        await fetch(`${API_BASE}/Resources/${getId(r)}`, {
+                        await apiFetch(`${API_BASE}/Resources/${getId(r)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1302,7 +1421,7 @@
                 }
                 for (const v of availableVolunteers) {
                     try {
-                        await fetch(`${API_BASE}/Volunteers/${getId(v)}`, {
+                        await apiFetch(`${API_BASE}/Volunteers/${getId(v)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1320,7 +1439,7 @@
                 }
                 for (const d of availableDonations) {
                     try {
-                        await fetch(`${API_BASE}/Donations/${getId(d)}`, {
+                        await apiFetch(`${API_BASE}/Donations/${getId(d)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -1389,7 +1508,7 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-shelter`, {
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-shelter`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ shelterId: getId(target) })
@@ -1399,7 +1518,7 @@
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Shelters/${getId(target)}`, {
+                        const res = await apiFetch(`${API_BASE}/Shelters/${getId(target)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1433,13 +1552,13 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-shelter/${sId}`, { method: 'POST' });
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-shelter/${sId}`, { method: 'POST' });
                     if (res.ok) saved = true;
                 } catch(e) {}
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Shelters/${sId}`, {
+                        const res = await apiFetch(`${API_BASE}/Shelters/${sId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1474,7 +1593,7 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-resource`, {
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-resource`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ resourceId: getId(target), shelterId: targetShelterId })
@@ -1484,7 +1603,7 @@
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Resources/${getId(target)}`, {
+                        const res = await apiFetch(`${API_BASE}/Resources/${getId(target)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1520,13 +1639,13 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-resource/${rId}`, { method: 'POST' });
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-resource/${rId}`, { method: 'POST' });
                     if (res.ok) saved = true;
                 } catch(e) {}
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Resources/${rId}`, {
+                        const res = await apiFetch(`${API_BASE}/Resources/${rId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1561,7 +1680,7 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-volunteer`, {
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-volunteer`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ volunteerId: getId(target), shelterId: targetShelterId })
@@ -1571,7 +1690,7 @@
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Volunteers/${getId(target)}`, {
+                        const res = await apiFetch(`${API_BASE}/Volunteers/${getId(target)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1607,13 +1726,13 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-volunteer/${vId}`, { method: 'POST' });
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-volunteer/${vId}`, { method: 'POST' });
                     if (res.ok) saved = true;
                 } catch(e) {}
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Volunteers/${vId}`, {
+                        const res = await apiFetch(`${API_BASE}/Volunteers/${vId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1647,7 +1766,7 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-donation`, {
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/connect-donation`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ donationId: getId(target) })
@@ -1657,7 +1776,7 @@
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Donations/${getId(target)}`, {
+                        const res = await apiFetch(`${API_BASE}/Donations/${getId(target)}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1692,13 +1811,13 @@
 
                 let saved = false;
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-donation/${dId}`, { method: 'POST' });
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents/${currentCrisisId}/disconnect-donation/${dId}`, { method: 'POST' });
                     if (res.ok) saved = true;
                 } catch(e) {}
 
                 if (!saved) {
                     try {
-                        const res = await fetch(`${API_BASE}/Donations/${dId}`, {
+                        const res = await apiFetch(`${API_BASE}/Donations/${dId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
@@ -1726,7 +1845,7 @@
                 };
 
                 try {
-                    const res = await fetch(`${API_BASE}/CrisisEvents`, {
+                    const res = await apiFetch(`${API_BASE}/CrisisEvents`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -2555,7 +2674,7 @@
 
             const loadData = () => {
                 setLoading(true);
-                fetch(`${API_BASE}/${endpoint}`)
+                apiFetch(`${API_BASE}/${endpoint}`)
                     .then(res => res.json())
                     .then(json => { 
                         setData(Array.isArray(json) ? json : []); 
@@ -2570,8 +2689,8 @@
             const loadReferences = async () => {
                 try {
                     const [cRes, sRes] = await Promise.all([
-                        fetch(`${API_BASE}/CrisisEvents`),
-                        fetch(`${API_BASE}/Shelters`)
+                        apiFetch(`${API_BASE}/CrisisEvents`),
+                        apiFetch(`${API_BASE}/Shelters`)
                     ]);
                     if (cRes.ok) setCrisesList(await cRes.json());
                     if (sRes.ok) setSheltersList(await sRes.json());
@@ -2648,7 +2767,7 @@
                 if (!confirm(`Are you sure you want to delete record ID: ${id}?`)) return;
 
                 try {
-                    const res = await fetch(`${API_BASE}/${endpoint}/${id}`, { method: 'DELETE' });
+                    const res = await apiFetch(`${API_BASE}/${endpoint}/${id}`, { method: 'DELETE' });
                     if (res.ok) {
                         loadData();
                     } else {
@@ -2661,7 +2780,7 @@
 
             const handleRunAI = async (id) => {
                 try {
-                    const res = await fetch(`${API_BASE}/AIRecommendation/generate/${id}`, { method: 'POST' });
+                    const res = await apiFetch(`${API_BASE}/AIRecommendation/generate/${id}`, { method: 'POST' });
                     const result = await res.json();
                     
                     if (res.ok) {
@@ -2715,7 +2834,7 @@
                     const url = editId ? `${API_BASE}/${endpoint}/${editId}` : `${API_BASE}/${endpoint}`;
                     const method = editId ? 'PUT' : 'POST';
 
-                    const res = await fetch(url, {
+                    const res = await apiFetch(url, {
                         method: method,
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -3009,7 +3128,7 @@
                 };
 
                 try {
-                    const res = await fetch(`${API_BASE}/AssistanceRequest`, {
+                    const res = await apiFetch(`${API_BASE}/AssistanceRequest`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -3097,7 +3216,7 @@
             const [isSubmitting, setIsSubmitting] = useState(false);
 
             useEffect(() => {
-                fetch(`${API_BASE}/CrisisEvents`)
+                apiFetch(`${API_BASE}/CrisisEvents`)
                     .then(res => res.json())
                     .then(data => setCrisesList(Array.isArray(data) ? data : []))
                     .catch(() => {});
@@ -3119,7 +3238,7 @@
                 };
 
                 try {
-                    const res = await fetch(`${API_BASE}/Donations`, {
+                    const res = await apiFetch(`${API_BASE}/Donations`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -3267,7 +3386,7 @@
                 };
 
                 try {
-                    const res = await fetch(`${API_BASE}/Volunteers`, {
+                    const res = await apiFetch(`${API_BASE}/Volunteers`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)

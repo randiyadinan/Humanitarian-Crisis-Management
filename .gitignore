@@ -17,3 +17,13 @@ Library/
 *.user
 *.suo
 humanitarian.db
+
+# SQLite databases and backups
+*.db
+*.db-shm
+*.db-wal
+*_backup.db
+*_fix_backup.db
+
+# Local secrets
+secrets.json
