@@ -38,6 +38,8 @@ namespace HumanitarianAPI.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("RequestId");
+
                     b.ToTable("AIRecommendations");
                 });
 
@@ -133,6 +135,8 @@ namespace HumanitarianAPI.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CrisisEventId");
+
                     b.ToTable("Donations");
                 });
 
@@ -218,6 +222,10 @@ namespace HumanitarianAPI.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CrisisEventId");
+
+                    b.HasIndex("ShelterId");
+
                     b.ToTable("Resources");
                 });
 
@@ -245,6 +253,8 @@ namespace HumanitarianAPI.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CrisisEventId");
 
                     b.ToTable("Shelters");
                 });
@@ -306,7 +316,62 @@ namespace HumanitarianAPI.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CrisisEventId");
+
+                    b.HasIndex("ShelterId");
+
                     b.ToTable("Volunteers");
+                });
+
+            modelBuilder.Entity("HumanitarianAPI.Models.AIRecommendation", b =>
+                {
+                    b.HasOne("HumanitarianAPI.Models.AssistanceRequest", null)
+                        .WithMany()
+                        .HasForeignKey("RequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("HumanitarianAPI.Models.Donation", b =>
+                {
+                    b.HasOne("HumanitarianAPI.Models.CrisisEvent", null)
+                        .WithMany()
+                        .HasForeignKey("CrisisEventId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("HumanitarianAPI.Models.Resource", b =>
+                {
+                    b.HasOne("HumanitarianAPI.Models.CrisisEvent", null)
+                        .WithMany()
+                        .HasForeignKey("CrisisEventId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HumanitarianAPI.Models.Shelter", null)
+                        .WithMany()
+                        .HasForeignKey("ShelterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("HumanitarianAPI.Models.Shelter", b =>
+                {
+                    b.HasOne("HumanitarianAPI.Models.CrisisEvent", null)
+                        .WithMany()
+                        .HasForeignKey("CrisisEventId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("HumanitarianAPI.Models.Volunteer", b =>
+                {
+                    b.HasOne("HumanitarianAPI.Models.CrisisEvent", null)
+                        .WithMany()
+                        .HasForeignKey("CrisisEventId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("HumanitarianAPI.Models.Shelter", null)
+                        .WithMany()
+                        .HasForeignKey("ShelterId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 #pragma warning restore 612, 618
         }
