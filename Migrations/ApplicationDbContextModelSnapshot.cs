@@ -226,7 +226,10 @@ namespace HumanitarianAPI.Migrations
 
                     b.HasIndex("ShelterId");
 
-                    b.ToTable("Resources");
+                    b.ToTable("Resources", t =>
+                        {
+                            t.HasCheckConstraint("CK_Resources_Quantity_NonNegative", "\"Quantity\" >= 0");
+                        });
                 });
 
             modelBuilder.Entity("HumanitarianAPI.Models.Shelter", b =>
@@ -256,7 +259,14 @@ namespace HumanitarianAPI.Migrations
 
                     b.HasIndex("CrisisEventId");
 
-                    b.ToTable("Shelters");
+                    b.ToTable("Shelters", t =>
+                        {
+                            t.HasCheckConstraint("CK_Shelters_Capacity_NonNegative", "\"Capacity\" >= 0");
+
+                            t.HasCheckConstraint("CK_Shelters_Occupancy_NonNegative", "\"CurrentOccupancy\" >= 0");
+
+                            t.HasCheckConstraint("CK_Shelters_Occupancy_WithinCapacity", "\"CurrentOccupancy\" <= \"Capacity\"");
+                        });
                 });
 
             modelBuilder.Entity("HumanitarianAPI.Models.User", b =>

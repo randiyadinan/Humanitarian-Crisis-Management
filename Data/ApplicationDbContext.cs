@@ -75,6 +75,31 @@ namespace HumanitarianAPI.Data
                 .WithMany()
                 .HasForeignKey(v => v.ShelterId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // Database Integrity Constraints
+
+            // Resource Quantity must not be negative
+            modelBuilder.Entity<Resource>()
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_Resources_Quantity_NonNegative",
+                    "\"Quantity\" >= 0"));
+
+            // Shelter Capacity and Occupancy constraints
+            modelBuilder.Entity<Shelter>()
+                .ToTable(table =>
+                {
+                    table.HasCheckConstraint(
+                        "CK_Shelters_Capacity_NonNegative",
+                        "\"Capacity\" >= 0");
+
+                    table.HasCheckConstraint(
+                        "CK_Shelters_Occupancy_NonNegative",
+                        "\"CurrentOccupancy\" >= 0");
+
+                    table.HasCheckConstraint(
+                        "CK_Shelters_Occupancy_WithinCapacity",
+                        "\"CurrentOccupancy\" <= \"Capacity\"");
+                });
         }
     }
 }
