@@ -65,11 +65,14 @@ namespace HumanitarianAPI.Controllers
                 });
             }
 
-            if (request.Password.Length < 8)
+            if (request.Password.Length < 8 ||
+                !request.Password.Any(char.IsUpper) ||
+                !request.Password.Any(char.IsLower) ||
+                !request.Password.Any(char.IsDigit))
             {
                 return BadRequest(new
                 {
-                    message = "Password must contain at least 8 characters."
+                    message = "Password must contain at least 8 characters, including an uppercase letter, a lowercase letter, and a number."
                 });
             }
 
