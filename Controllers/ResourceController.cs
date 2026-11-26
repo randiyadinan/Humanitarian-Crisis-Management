@@ -42,10 +42,32 @@ namespace HumanitarianAPI.Controllers
 
         // 2. Adding a new resource (POST)
         [HttpPost]
-        public async Task<ActionResult<Resource>> CreateResource([FromBody] Resource newResource)
+        public async Task<ActionResult<Resource>> CreateResource(
+            [FromBody] Resource newResource)
         {
+            if (string.IsNullOrWhiteSpace(newResource.Name))
+            {
+                return BadRequest(new { message = "Resource name is required." });
+            }
+
+            if (newResource.Quantity < 0)
+            {
+                return BadRequest(new { message = "Quantity cannot be negative." });
+            }
+
+            if (string.IsNullOrWhiteSpace(newResource.Location))
+            {
+                return BadRequest(new { message = "Location is required." });
+            }
+
+            if (string.IsNullOrWhiteSpace(newResource.Status))
+            {
+                return BadRequest(new { message = "Status is required." });
+            }
+
             _context.Resources.Add(newResource);
             await _context.SaveChangesAsync();
+
             return Ok(newResource);
         }
 
@@ -56,6 +78,17 @@ namespace HumanitarianAPI.Controllers
             if (id != resource.Id)
             {
                 return BadRequest(new { message = "Resource ID mismatch" });
+            }
+
+            if (string.IsNullOrWhiteSpace(resource.Name) ||
+                string.IsNullOrWhiteSpace(resource.Location) ||
+                string.IsNullOrWhiteSpace(resource.Status) ||
+                resource.Quantity < 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid resource details."
+                });
             }
 
             var existingResource = await _context.Resources.FindAsync(id);
