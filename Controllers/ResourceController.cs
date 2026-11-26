@@ -19,14 +19,28 @@ namespace HumanitarianAPI.Controllers
             _context = context; 
         }
 
-        // 1. සියලුම Resources ලබාගැනීම (GET)
+        // 1. Get all resources
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Resource>>> GetResources() 
         { 
             return await _context.Resources.ToListAsync(); 
         }
 
-        // 2. අලුත් Resource එකක් ඇතුළත් කිරීම (POST)
+        // Get a Resource by ID
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Resource>> GetResource(int id)
+        {
+            var resource = await _context.Resources.FindAsync(id);
+
+            if (resource == null)
+            {
+                return NotFound(new { message = "Resource not found." });
+            }
+
+            return Ok(resource);
+        }
+
+        // 2. Adding a new resource (POST)
         [HttpPost]
         public async Task<ActionResult<Resource>> CreateResource([FromBody] Resource newResource)
         {
@@ -35,7 +49,7 @@ namespace HumanitarianAPI.Controllers
             return Ok(newResource);
         }
 
-        // 3. Resource එකක් Update කිරීම (PUT)
+        // 3. Updating a resource (PUT)
         [HttpPut("{id}")]
         public async Task<IActionResult> PutResource(int id, [FromBody] Resource resource)
         {
@@ -75,7 +89,7 @@ namespace HumanitarianAPI.Controllers
             }
         }
 
-        // 4. Resource එකක් ඉවත් කිරීම (DELETE)
+        // 4. Removing a resource (DELETE)
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteResource(int id)
         {
