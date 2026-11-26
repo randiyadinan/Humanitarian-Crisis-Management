@@ -37,8 +37,18 @@ namespace HumanitarianAPI.Controllers
         public async Task<ActionResult<Volunteer>> CreateVolunteer([FromBody] Volunteer newVolunteer)
         {
             _context.Volunteers.Add(newVolunteer);
-            await _context.SaveChangesAsync();
-            return Ok(newVolunteer);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(newVolunteer);
+            }
+            catch (DbUpdateException)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while saving the volunteer."
+                });
+            }
         }
 
         [HttpPut("{id}")]

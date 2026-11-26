@@ -66,9 +66,18 @@ namespace HumanitarianAPI.Controllers
             }
 
             _context.Resources.Add(newResource);
-            await _context.SaveChangesAsync();
-
-            return Ok(newResource);
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(newResource);
+            }
+            catch (DbUpdateException)
+            {
+                return StatusCode(500, new
+                {
+                    message = "An error occurred while saving the resource."
+                });
+            }
         }
 
         // 3. Updating a resource (PUT)
