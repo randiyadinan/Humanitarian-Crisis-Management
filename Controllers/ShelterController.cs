@@ -36,9 +36,30 @@ namespace HumanitarianAPI.Controllers
         [HttpPost]
         public async Task<ActionResult<Shelter>> CreateShelter([FromBody] Shelter newShelter)
         {
-            _context.Shelters.Add(newShelter);
-            await _context.SaveChangesAsync();
-            return Ok(newShelter);
+
+            if (string.IsNullOrWhiteSpace(newShelter.Name) ||
+                string.IsNullOrWhiteSpace(newShelter.Location))
+            {
+                return BadRequest(new
+                {
+                    message = "Shelter name and location are required."
+                });
+            }
+
+            if (newShelter.Capacity <= 0 ||
+                newShelter.CurrentOccupancy < 0 ||
+                newShelter.CurrentOccupancy > newShelter.Capacity)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid shelter capacity or occupancy."
+                });
+            }
+
+_context.Shelters.Add(newShelter);
+await _context.SaveChangesAsync();
+
+return Ok(newShelter);
         }
 
         [HttpPut("{id}")]
