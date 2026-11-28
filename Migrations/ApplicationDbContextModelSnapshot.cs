@@ -199,6 +199,13 @@ namespace HumanitarianAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AllocatedQuantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<int?>("CrisisEventId")
                         .HasColumnType("INTEGER");
 
@@ -226,8 +233,14 @@ namespace HumanitarianAPI.Migrations
 
                     b.HasIndex("ShelterId");
 
+                    b.HasIndex("Status", "Category");
+
                     b.ToTable("Resources", t =>
                         {
+                            t.HasCheckConstraint("CK_Resources_AllocatedQuantity_NonNegative", "\"AllocatedQuantity\" >= 0");
+
+                            t.HasCheckConstraint("CK_Resources_AllocatedQuantity_WithinQuantity", "\"AllocatedQuantity\" <= \"Quantity\"");
+
                             t.HasCheckConstraint("CK_Resources_Quantity_NonNegative", "\"Quantity\" >= 0");
                         });
                 });
@@ -255,9 +268,15 @@ namespace HumanitarianAPI.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CrisisEventId");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("Shelters", t =>
                         {
@@ -266,6 +285,32 @@ namespace HumanitarianAPI.Migrations
                             t.HasCheckConstraint("CK_Shelters_Occupancy_NonNegative", "\"CurrentOccupancy\" >= 0");
 
                             t.HasCheckConstraint("CK_Shelters_Occupancy_WithinCapacity", "\"CurrentOccupancy\" <= \"Capacity\"");
+                        });
+                });
+
+            modelBuilder.Entity("HumanitarianAPI.Models.ShelterOccupant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("HouseholdName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PersonCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ShelterId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShelterId");
+
+                    b.ToTable("ShelterOccupants", t =>
+                        {
+                            t.HasCheckConstraint("CK_ShelterOccupants_PersonCount_Positive", "\"PersonCount\" > 0");
                         });
                 });
 
@@ -302,6 +347,10 @@ namespace HumanitarianAPI.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("AssignedTask")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ContactNumber")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -320,6 +369,10 @@ namespace HumanitarianAPI.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Specialisation")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -329,6 +382,8 @@ namespace HumanitarianAPI.Migrations
                     b.HasIndex("CrisisEventId");
 
                     b.HasIndex("ShelterId");
+
+                    b.HasIndex("Status");
 
                     b.ToTable("Volunteers");
                 });
@@ -369,6 +424,15 @@ namespace HumanitarianAPI.Migrations
                         .WithMany()
                         .HasForeignKey("CrisisEventId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("HumanitarianAPI.Models.ShelterOccupant", b =>
+                {
+                    b.HasOne("HumanitarianAPI.Models.Shelter", null)
+                        .WithMany()
+                        .HasForeignKey("ShelterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("HumanitarianAPI.Models.Volunteer", b =>

@@ -50,22 +50,22 @@ VALUES ('Test Event', 'Test', 'Test Location', 'Low', '2026-11-25');
 INSERT INTO TestIds VALUES ('CrisisEvent', last_insert_rowid());
 
 INSERT INTO Shelters
-(Capacity, CrisisEventId, CurrentOccupancy, Location, Name)
-SELECT 100, Id, 10, 'Test Location', 'Test Shelter'
+(Capacity, CrisisEventId, CurrentOccupancy, Location, Name, Status)
+SELECT 100, Id, 10, 'Test Location', 'Test Shelter', 'Open'
 FROM TestIds WHERE Name = 'CrisisEvent';
 
 INSERT INTO Resources
-(CrisisEventId, Location, Name, Quantity, ShelterId, Status)
-SELECT Id, 'Test Location', 'Test Resource', 10,
+(AllocatedQuantity, Category, CrisisEventId, Location, Name, Quantity, ShelterId, Status)
+SELECT 0, 'Water', Id, 'Test Location', 'Test Resource', 10,
        (SELECT Id FROM Shelters WHERE Name = 'Test Shelter'),
        'Available'
 FROM TestIds WHERE Name = 'CrisisEvent';
 
 INSERT INTO Volunteers
-(ContactNumber, CrisisEventId, Name, ShelterId, Skills, Status)
-SELECT '0000000000', Id, 'Test Volunteer',
+(AssignedTask, ContactNumber, CrisisEventId, Name, ShelterId, Skills, Specialisation, Status)
+SELECT '', '0000000000', Id, 'Test Volunteer',
        (SELECT Id FROM Shelters WHERE Name = 'Test Shelter'),
-       'First Aid', 'Available'
+       'First Aid', 'General Relief', 'Available'
 FROM TestIds WHERE Name = 'CrisisEvent';
 
 INSERT INTO Donations
@@ -86,20 +86,20 @@ SELECT 'Crisis Event SetNull' AS Test,
 
 -- 5. Shelter SetNull test
 INSERT INTO Shelters
-(Capacity, CurrentOccupancy, Location, Name)
-VALUES (50, 5, 'Test Location', 'Shelter Delete Test');
+(Capacity, CurrentOccupancy, Location, Name, Status)
+VALUES (50, 5, 'Test Location', 'Shelter Delete Test', 'Open');
 
 INSERT INTO TestIds VALUES ('Shelter', last_insert_rowid());
 
 INSERT INTO Resources
-(Location, Name, Quantity, ShelterId, Status)
-SELECT 'Test Location', 'Shelter Test Resource', 5, Id, 'Available'
+(AllocatedQuantity, Category, Location, Name, Quantity, ShelterId, Status)
+SELECT 0, 'Food', 'Test Location', 'Shelter Test Resource', 5, Id, 'Available'
 FROM TestIds WHERE Name = 'Shelter';
 
 INSERT INTO Volunteers
-(ContactNumber, Name, ShelterId, Skills, Status)
-SELECT '0000000001', 'Shelter Test Volunteer', Id,
-       'Medical', 'Available'
+(AssignedTask, ContactNumber, Name, ShelterId, Skills, Specialisation, Status)
+SELECT '', '0000000001', 'Shelter Test Volunteer', Id,
+       'Medical', 'General Relief', 'Available'
 FROM TestIds WHERE Name = 'Shelter';
 
 DELETE FROM Shelters
@@ -110,6 +110,27 @@ SELECT 'Shelter SetNull' AS Test,
            (SELECT ShelterId FROM Resources WHERE Name = 'Shelter Test Resource') IS NULL
            AND (SELECT ShelterId FROM Volunteers WHERE Name = 'Shelter Test Volunteer') IS NULL
        THEN 'PASS' ELSE 'FAIL' END AS Result;
+
+-- 6. Shelter Occupant Cascade Delete test
+INSERT INTO Shelters
+(Capacity, CurrentOccupancy, Location, Name, Status)
+VALUES (50, 4, 'Test Location', 'Occupant Cascade Test', 'Open');
+
+INSERT INTO TestIds VALUES ('OccupantShelter', last_insert_rowid());
+
+INSERT INTO ShelterOccupants
+(HouseholdName, PersonCount, ShelterId)
+SELECT 'Test Household', 4, Id
+FROM TestIds WHERE Name = 'OccupantShelter';
+
+DELETE FROM Shelters
+WHERE Id = (SELECT Id FROM TestIds WHERE Name = 'OccupantShelter');
+
+SELECT 'Shelter Occupant Cascade Delete' AS Test,
+       CASE WHEN NOT EXISTS (
+           SELECT 1 FROM ShelterOccupants
+           WHERE ShelterId = (SELECT Id FROM TestIds WHERE Name = 'OccupantShelter')
+       ) THEN 'PASS' ELSE 'FAIL' END AS Result;
 
 ROLLBACK;
 
