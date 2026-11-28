@@ -13,6 +13,7 @@ namespace HumanitarianAPI.Data
         // Database Tables
         public DbSet<AssistanceRequest> AssistanceRequests { get; set; }
         public DbSet<Shelter> Shelters { get; set; }
+        public DbSet<ShelterOccupant> ShelterOccupants { get; set; }
         public DbSet<Volunteer> Volunteers { get; set; }
         public DbSet<Resource> Resources { get; set; }
         public DbSet<Donation> Donations { get; set; }
