@@ -13,7 +13,6 @@ namespace HumanitarianAPI.Data
         // Database Tables
         public DbSet<AssistanceRequest> AssistanceRequests { get; set; }
         public DbSet<Shelter> Shelters { get; set; }
-        public DbSet<ShelterOccupant> ShelterOccupants { get; set; }
         public DbSet<Volunteer> Volunteers { get; set; }
         public DbSet<Resource> Resources { get; set; }
         public DbSet<Donation> Donations { get; set; }
@@ -77,37 +76,13 @@ namespace HumanitarianAPI.Data
                 .HasForeignKey(v => v.ShelterId)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            // Shelter Occupant - Shelter (assignments belong to their shelter)
-            modelBuilder.Entity<ShelterOccupant>()
-                .HasOne<Shelter>()
-                .WithMany()
-                .HasForeignKey(o => o.ShelterId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Indexes supporting availability/categorisation filters
-            modelBuilder.Entity<Resource>().HasIndex(r => new { r.Status, r.Category });
-            modelBuilder.Entity<Shelter>().HasIndex(s => s.Status);
-            modelBuilder.Entity<Volunteer>().HasIndex(v => v.Status);
-
             // Database Integrity Constraints
 
+            // Resource Quantity must not be negative
             modelBuilder.Entity<Resource>()
-                .ToTable(table =>
-                {
-                    // Resource Quantity must not be negative
-                    table.HasCheckConstraint(
-                        "CK_Resources_Quantity_NonNegative",
-                        "\"Quantity\" >= 0");
-
-                    // Allocated units cannot be negative or exceed total stock
-                    table.HasCheckConstraint(
-                        "CK_Resources_AllocatedQuantity_NonNegative",
-                        "\"AllocatedQuantity\" >= 0");
-
-                    table.HasCheckConstraint(
-                        "CK_Resources_AllocatedQuantity_WithinQuantity",
-                        "\"AllocatedQuantity\" <= \"Quantity\"");
-                });
+                .ToTable(table => table.HasCheckConstraint(
+                    "CK_Resources_Quantity_NonNegative",
+                    "\"Quantity\" >= 0"));
 
             // Shelter Capacity and Occupancy constraints
             modelBuilder.Entity<Shelter>()
@@ -125,12 +100,6 @@ namespace HumanitarianAPI.Data
                         "CK_Shelters_Occupancy_WithinCapacity",
                         "\"CurrentOccupancy\" <= \"Capacity\"");
                 });
-
-            // Each household/person assignment must contain at least one person
-            modelBuilder.Entity<ShelterOccupant>()
-                .ToTable(table => table.HasCheckConstraint(
-                    "CK_ShelterOccupants_PersonCount_Positive",
-                    "\"PersonCount\" > 0"));
         }
     }
 }

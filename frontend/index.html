@@ -761,9 +761,9 @@
                     case 'volunteer-form': return <CitizenVolunteerForm user={user} onDone={() => setActiveTab('dashboard')} />;
                     case 'manage-requests': return <DynamicDataTable title="Assistance Requests" endpoint="AssistanceRequest" cols={["Id", "Category", "Location", "Urgency", "Status", "Description"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
                     case 'crisis-events': return <DynamicDataTable title="Crisis Events" endpoint="CrisisEvents" cols={["Id", "Title", "EventType", "Location", "Severity", "DateReported"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
-                    case 'shelters': return <DynamicDataTable title="Shelters Database" endpoint="Shelters" cols={["Id", "Name", "Location", "Capacity", "CurrentOccupancy", "AvailableCapacity", "Status", "CrisisEventId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
-                    case 'resources': return <DynamicDataTable title="Resources Inventory" endpoint="Resources" cols={["Id", "Name", "Category", "Quantity", "AllocatedQuantity", "AvailableQuantity", "Location", "Status", "CrisisEventId", "ShelterId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
-                    case 'volunteers': return <DynamicDataTable title="Volunteers Directory" endpoint="Volunteers" cols={["Id", "Name", "Skills", "Specialisation", "ContactNumber", "AssignedTask", "Status", "CrisisEventId", "ShelterId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
+                    case 'shelters': return <DynamicDataTable title="Shelters Database" endpoint="Shelters" cols={["Id", "Name", "Location", "Capacity", "CurrentOccupancy", "CrisisEventId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
+                    case 'resources': return <DynamicDataTable title="Resources Inventory" endpoint="Resources" cols={["Id", "Name", "Quantity", "Location", "Status", "CrisisEventId", "ShelterId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
+                    case 'volunteers': return <DynamicDataTable title="Volunteers Directory" endpoint="Volunteers" cols={["Id", "Name", "Skills", "ContactNumber", "Status", "CrisisEventId", "ShelterId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
                     case 'donations': return <DynamicDataTable title="Donations Record" endpoint="Donations" cols={["Id", "DonorName", "DonationType", "Amount", "Description", "Date", "CrisisEventId"]} userRole={user.role} onCoordinateCrisis={navigateToCoordinator} />;
                     case 'organisations': return <OrganisationManagement />;
                     case 'profile': return <UserProfile user={user} />;
@@ -1395,7 +1395,6 @@
                                 Location: s.location || s.Location || '',
                                 Capacity: parseInt(s.capacity ?? s.Capacity ?? 0),
                                 CurrentOccupancy: parseInt(s.currentOccupancy ?? s.CurrentOccupancy ?? 0),
-                                Status: s.status || s.Status || 'Open',
                                 CrisisEventId: currentCrisisId
                             })
                         });
@@ -1410,7 +1409,6 @@
                             body: JSON.stringify({
                                 Id: getId(r),
                                 Name: r.name || r.Name || '',
-                                Category: r.category || r.Category || 'Uncategorised',
                                 Quantity: parseInt(r.quantity ?? r.Quantity ?? 0),
                                 Location: r.location || r.Location || '',
                                 Status: 'Dispatched',
@@ -1430,7 +1428,6 @@
                                 Id: getId(v),
                                 Name: v.name || v.Name || '',
                                 Skills: v.skills || v.Skills || '',
-                                Specialisation: v.specialisation || v.Specialisation || 'General Relief',
                                 ContactNumber: v.contactNumber || v.ContactNumber || '',
                                 Status: 'Deployed',
                                 CrisisEventId: currentCrisisId,
@@ -1506,7 +1503,6 @@
                     Location: target.location || target.Location || '',
                     Capacity: parseInt(target.capacity ?? target.Capacity ?? 0),
                     CurrentOccupancy: parseInt(target.currentOccupancy ?? target.CurrentOccupancy ?? 0),
-                    Status: target.status || target.Status || 'Open',
                     CrisisEventId: currentCrisisId
                 };
 
@@ -1551,7 +1547,6 @@
                     Location: target.location || target.Location || '',
                     Capacity: parseInt(target.capacity ?? target.Capacity ?? 0),
                     CurrentOccupancy: parseInt(target.currentOccupancy ?? target.CurrentOccupancy ?? 0),
-                    Status: target.status || target.Status || 'Open',
                     CrisisEventId: null
                 };
 
@@ -1589,7 +1584,6 @@
                 const payload = {
                     Id: getId(target),
                     Name: target.name || target.Name || '',
-                    Category: target.category || target.Category || 'Uncategorised',
                     Quantity: parseInt(target.quantity ?? target.Quantity ?? 0),
                     Location: target.location || target.Location || '',
                     Status: "Dispatched",
@@ -1636,7 +1630,6 @@
                 const payload = {
                     Id: rId,
                     Name: target.name || target.Name || '',
-                    Category: target.category || target.Category || 'Uncategorised',
                     Quantity: parseInt(target.quantity ?? target.Quantity ?? 0),
                     Location: target.location || target.Location || '',
                     Status: "Available",
@@ -1679,7 +1672,6 @@
                     Id: getId(target),
                     Name: target.name || target.Name || '',
                     Skills: target.skills || target.Skills || '',
-                    Specialisation: target.specialisation || target.Specialisation || 'General Relief',
                     ContactNumber: target.contactNumber || target.ContactNumber || '',
                     Status: "Deployed",
                     CrisisEventId: currentCrisisId,
@@ -1726,7 +1718,6 @@
                     Id: vId,
                     Name: target.name || target.Name || '',
                     Skills: target.skills || target.Skills || '',
-                    Specialisation: target.specialisation || target.Specialisation || 'General Relief',
                     ContactNumber: target.contactNumber || target.ContactNumber || '',
                     Status: "Available",
                     CrisisEventId: null,
@@ -2674,14 +2665,6 @@
             const [crisesList, setCrisesList] = useState([]);
             const [sheltersList, setSheltersList] = useState([]);
 
-            const readOnlyCols = ['AvailableQuantity', 'AssignedTask'];
-            const numericCols = ['Capacity', 'CurrentOccupancy', 'Quantity', 'AllocatedQuantity', 'Amount'];
-            const statusOptions = {
-                Resources: ['Available', 'Reserved', 'Dispatched', 'Depleted', 'Damaged'],
-                Shelters: ['Open', 'Full', 'Closed'],
-                Volunteers: ['Available', 'Deployed', 'Unavailable']
-            };
-
             const [reqDistrict, setReqDistrict] = useState('Kalutara');
             const [reqAddress, setReqAddress] = useState('');
             const [reqCategory, setReqCategory] = useState('Medical');
@@ -2764,7 +2747,7 @@
                 }
 
                 const populateData = {};
-                cols.filter(c => c.toLowerCase() !== 'id' && !readOnlyCols.includes(c)).forEach(col => {
+                cols.filter(c => c.toLowerCase() !== 'id').forEach(col => {
                     const foundKey = Object.keys(row).find(k => k.toLowerCase() === col.toLowerCase());
                     populateData[col] = foundKey ? row[foundKey] : '';
                 });
@@ -2793,191 +2776,6 @@
                 } catch (error) {
                     alert("Network error. Backend not reachable.");
                 }
-            };
-
-            const requireMember4Admin = () => {
-                if (userRole !== 'Admin') {
-                    alert("Unauthorized: Only Admins have modification privileges.");
-                    return false;
-                }
-                return true;
-            };
-
-            const runMember4Action = async (url, options, successMessage) => {
-                try {
-                    const res = await apiFetch(url, options);
-                    if (res.ok) {
-                        alert(successMessage);
-                        loadData();
-                        return true;
-                    }
-                    alert(`Action failed: ${await readApiError(res)}`);
-                } catch (error) {
-                    alert("Network error. Backend not reachable.");
-                }
-                return false;
-            };
-
-            const jsonPost = (body) => ({
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            const handleResourceAllocate = async (row) => {
-                if (!requireMember4Admin()) return;
-                const quantity = row.quantity ?? row.Quantity ?? 0;
-                const allocated = row.allocatedQuantity ?? row.AllocatedQuantity ?? 0;
-                const available = Math.max(0, quantity - allocated);
-                if (available <= 0) { alert("No available units to allocate."); return; }
-
-                const rawQuantity = prompt(`Units to allocate (maximum ${available}):`, '1');
-                if (rawQuantity === null) return;
-                const amount = parseInt(rawQuantity, 10);
-                if (!Number.isInteger(amount) || amount < 1 || amount > available) {
-                    alert(`Enter a whole number between 1 and ${available}.`);
-                    return;
-                }
-
-                const crisisRaw = prompt('Crisis Event ID (optional):', String(row.crisisEventId ?? row.CrisisEventId ?? ''));
-                if (crisisRaw === null) return;
-                const shelterRaw = prompt('Shelter ID (optional):', String(row.shelterId ?? row.ShelterId ?? ''));
-                if (shelterRaw === null) return;
-
-                const payload = { quantity: amount };
-                if (crisisRaw.trim()) payload.crisisEventId = parseInt(crisisRaw, 10);
-                if (shelterRaw.trim()) payload.shelterId = parseInt(shelterRaw, 10);
-
-                await runMember4Action(
-                    `${API_BASE}/Resources/${getId(row)}/allocate`,
-                    jsonPost(payload),
-                    `Allocated ${amount} unit(s) successfully.`
-                );
-            };
-
-            const handleResourceRelease = async (row) => {
-                if (!requireMember4Admin()) return;
-                const allocated = row.allocatedQuantity ?? row.AllocatedQuantity ?? 0;
-                if (allocated <= 0) { alert("This resource has no allocated units to release."); return; }
-
-                const rawQuantity = prompt(`Units to release (maximum ${allocated}):`, String(allocated));
-                if (rawQuantity === null) return;
-                const amount = parseInt(rawQuantity, 10);
-                if (!Number.isInteger(amount) || amount < 1 || amount > allocated) {
-                    alert(`Enter a whole number between 1 and ${allocated}.`);
-                    return;
-                }
-
-                await runMember4Action(
-                    `${API_BASE}/Resources/${getId(row)}/release`,
-                    jsonPost({ quantity: amount }),
-                    `Released ${amount} unit(s) successfully.`
-                );
-            };
-
-            const handleShelterStatus = async (row) => {
-                if (!requireMember4Admin()) return;
-                const current = row.status ?? row.Status ?? 'Open';
-                const raw = prompt(`New status (${statusOptions.Shelters.join(', ')}):`, String(current));
-                if (raw === null) return;
-                const status = raw.trim();
-                if (!statusOptions.Shelters.includes(status)) {
-                    alert(`Status must be one of: ${statusOptions.Shelters.join(', ')}.`);
-                    return;
-                }
-
-                await runMember4Action(
-                    `${API_BASE}/Shelters/${getId(row)}/status`,
-                    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) },
-                    `Shelter status set to ${status}.`
-                );
-            };
-
-            const handleShelterAssign = async (row) => {
-                if (!requireMember4Admin()) return;
-                const household = prompt('Household / group name:', 'Relief household');
-                if (household === null) return;
-                const rawCount = prompt('Number of people to assign:', '1');
-                if (rawCount === null) return;
-                const personCount = parseInt(rawCount, 10);
-                if (!Number.isInteger(personCount) || personCount < 1) {
-                    alert('Enter a positive whole number of people.');
-                    return;
-                }
-
-                await runMember4Action(
-                    `${API_BASE}/Shelters/${getId(row)}/occupants`,
-                    jsonPost({ householdName: household.trim() || 'Relief household', personCount }),
-                    `Assigned ${personCount} person(s) to the shelter.`
-                );
-            };
-
-            const handleShelterOccupants = async (row) => {
-                try {
-                    const res = await apiFetch(`${API_BASE}/Shelters/${getId(row)}/occupants`);
-                    if (!res.ok) { alert(`Could not load occupants: ${await readApiError(res)}`); return; }
-                    const occupants = await res.json();
-                    if (!Array.isArray(occupants) || occupants.length === 0) {
-                        alert('No households assigned to this shelter.');
-                        return;
-                    }
-                    alert(occupants.map(o =>
-                        `${o.householdName ?? o.HouseholdName ?? 'Household'}: ${o.personCount ?? o.PersonCount ?? 0} person(s)`
-                    ).join('\n'));
-                } catch (error) {
-                    alert('Network error. Backend not reachable.');
-                }
-            };
-
-            const handleVolunteerAssign = async (row) => {
-                if (!requireMember4Admin()) return;
-                const crisisRaw = prompt('Crisis Event ID:', String(row.crisisEventId ?? row.CrisisEventId ?? ''));
-                if (crisisRaw === null) return;
-                const crisisEventId = parseInt(crisisRaw, 10);
-                if (!Number.isInteger(crisisEventId) || crisisEventId < 1) {
-                    alert('A valid Crisis Event ID is required.');
-                    return;
-                }
-                const shelterRaw = prompt('Shelter ID (optional):', String(row.shelterId ?? row.ShelterId ?? ''));
-                if (shelterRaw === null) return;
-                const task = prompt('Assigned task:', String(row.assignedTask ?? row.AssignedTask ?? 'Field deployment'));
-                if (task === null) return;
-
-                const payload = { crisisEventId, task: task.trim() || 'Field deployment' };
-                if (shelterRaw.trim()) payload.shelterId = parseInt(shelterRaw, 10);
-
-                await runMember4Action(
-                    `${API_BASE}/Volunteers/${getId(row)}/assign`,
-                    jsonPost(payload),
-                    'Volunteer deployed successfully.'
-                );
-            };
-
-            const handleVolunteerRelease = async (row) => {
-                if (!requireMember4Admin()) return;
-                await runMember4Action(
-                    `${API_BASE}/Volunteers/${getId(row)}/release`,
-                    { method: 'POST' },
-                    'Volunteer released to the available pool.'
-                );
-            };
-
-            const handleVolunteerAvailability = async (row) => {
-                if (!requireMember4Admin()) return;
-                const current = row.status ?? row.Status ?? 'Available';
-                const raw = prompt(`New status (${statusOptions.Volunteers.join(', ')}):`, String(current));
-                if (raw === null) return;
-                const status = raw.trim();
-                if (!statusOptions.Volunteers.includes(status)) {
-                    alert(`Status must be one of: ${statusOptions.Volunteers.join(', ')}.`);
-                    return;
-                }
-
-                await runMember4Action(
-                    `${API_BASE}/Volunteers/${getId(row)}/availability`,
-                    { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) },
-                    `Volunteer status set to ${status}.`
-                );
             };
 
             const handleRunAI = async (id) => {
@@ -3019,12 +2817,14 @@
                     payload.Status = reqStatus;
                     payload.Description = reqDesc || "Emergency reported";
                 } else {
-                    cols.filter(c => c.toLowerCase() !== 'id' && !readOnlyCols.includes(c)).forEach(col => {
+                    cols.filter(c => c.toLowerCase() !== 'id').forEach(col => {
                         let val = formData[col];
                         if (col === 'CrisisEventId' || col === 'ShelterId') {
                             val = (val !== undefined && val !== "" && val !== null) ? parseInt(val) : null;
-                        } else if (numericCols.includes(col)) {
-                            val = col === 'Amount' ? parseFloat(val || 0) : parseInt(val || 0);
+                        } else if (col === 'Capacity' || col === 'CurrentOccupancy' || col === 'Quantity') {
+                            val = val ? parseInt(val) : 0;
+                        } else if (col === 'Amount') {
+                            val = val ? parseFloat(val) : 0;
                         }
                         payload[col] = val !== undefined ? val : "";
                     });
@@ -3159,66 +2959,6 @@
                                                                     🤖 AI Triage
                                                                 </button>
                                                             )}
-                                                            {userRole === 'Admin' && endpoint === 'Resources' && (
-                                                                <React.Fragment>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleResourceAllocate(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--success)', borderColor: 'rgba(5,150,105,0.3)'}}>
-                                                                        Allocate
-                                                                    </button>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleResourceRelease(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--primary)', borderColor: 'rgba(2,132,199,0.3)'}}>
-                                                                        Release
-                                                                    </button>
-                                                                </React.Fragment>
-                                                            )}
-                                                            {userRole === 'Admin' && endpoint === 'Shelters' && (
-                                                                <React.Fragment>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleShelterAssign(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--success)', borderColor: 'rgba(5,150,105,0.3)'}}>
-                                                                        Assign People
-                                                                    </button>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleShelterOccupants(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--primary)', borderColor: 'rgba(2,132,199,0.3)'}}>
-                                                                        Occupants
-                                                                    </button>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleShelterStatus(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--warning)', borderColor: 'rgba(217,119,6,0.3)'}}>
-                                                                        Status
-                                                                    </button>
-                                                                </React.Fragment>
-                                                            )}
-                                                            {userRole === 'Admin' && endpoint === 'Volunteers' && (
-                                                                <React.Fragment>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleVolunteerAssign(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--success)', borderColor: 'rgba(5,150,105,0.3)'}}>
-                                                                        Deploy
-                                                                    </button>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleVolunteerRelease(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--primary)', borderColor: 'rgba(2,132,199,0.3)'}}>
-                                                                        Release
-                                                                    </button>
-                                                                    <button
-                                                                        className="btn-outline-glass"
-                                                                        onClick={() => handleVolunteerAvailability(row)}
-                                                                        style={{padding: '5px 10px', fontSize: '11px', color: 'var(--warning)', borderColor: 'rgba(217,119,6,0.3)'}}>
-                                                                        Availability
-                                                                    </button>
-                                                                </React.Fragment>
-                                                            )}
                                                             {userRole === 'Admin' && (
                                                                 <React.Fragment>
                                                                     <button 
@@ -3304,7 +3044,7 @@
                                         </div>
                                     ) : (
                                         <div>
-                                            {cols.filter(c => c.toLowerCase() !== 'id' && !readOnlyCols.includes(c)).map(col => {
+                                            {cols.filter(c => c.toLowerCase() !== 'id').map(col => {
                                                 if (col === 'CrisisEventId') {
                                                     return (
                                                         <div className="input-group" key={col}>
@@ -3341,29 +3081,13 @@
                                                         </div>
                                                     );
                                                 }
-                                                if (col === 'Status' && statusOptions[endpoint]) {
-                                                    return (
-                                                        <div className="input-group" key={col}>
-                                                            <label>Status</label>
-                                                            <select
-                                                                className="glass-input"
-                                                                value={formData[col] || ''}
-                                                                onChange={e => handleInputChange(col, e.target.value)}>
-                                                                <option value="">-- Default --</option>
-                                                                {statusOptions[endpoint].map(option => (
-                                                                    <option key={option} value={option}>{option}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                    );
-                                                }
                                                 return (
                                                     <div className="input-group" key={col}>
                                                         <label>{col.replace(/([A-Z])/g, ' $1').trim()}</label>
                                                         <input 
-                                                            type={numericCols.includes(col) ? 'number' : 'text'}
+                                                            type={col === 'Capacity' || col === 'CurrentOccupancy' || col === 'Quantity' || col === 'Amount' ? 'number' : 'text'} 
                                                             className="glass-input" 
-                                                            required={col !== 'CrisisEventId' && col !== 'ShelterId' && col !== 'Status'}
+                                                            required={col !== 'CrisisEventId' && col !== 'ShelterId'} 
                                                             value={formData[col] !== undefined ? formData[col] : ''} 
                                                             onChange={e => handleInputChange(col, e.target.value)} 
                                                             placeholder={`Enter ${col}`}
@@ -3655,7 +3379,6 @@
                     Id: 0,
                     Name: name || "Volunteer Citizen",
                     Skills: combinedSkills,
-                    Specialisation: selectedSkill,
                     ContactNumber: contactNumber,
                     Status: "Available",
                     CrisisEventId: null,
